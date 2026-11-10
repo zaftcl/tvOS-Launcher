@@ -1007,11 +1007,17 @@ public class SettingsActivity extends Activity {
                         });
             }
             row(tr("Each scene stays", "Her sahne süresi"),
-                    () -> Scenes.getStaySeconds(this) + tr(" seconds", " saniye"),
-                    () -> {
-                        Scenes.cycleStaySeconds(this);
-                        refreshAll();
-                    });
+    () -> {
+        int secs = Scenes.getStaySeconds(this);
+        if (secs >= 60) {
+            return (secs / 60) + tr(" minutes", " dakika");
+        }
+        return secs + tr(" seconds", " saniye");
+    },
+    () -> {
+        Scenes.cycleStaySeconds(this);
+        refreshAll();
+    });
 
             section(tr("CUSTOM WALLPAPER", "ÖZEL DUVAR KAĞIDI"));
             row(tr("Custom wallpaper mode", "Özel duvar kağıdı modu"),

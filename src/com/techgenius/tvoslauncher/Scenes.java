@@ -60,7 +60,8 @@ public final class Scenes {
     public static final String CLOCK_STYLE_TALL = "tall";
     public static final String[] CLOCK_STYLES = {CLOCK_STYLE_DUO, CLOCK_STYLE_ROUNDED, CLOCK_STYLE_TALL};
 
-    public static final int[] STAY_OPTIONS = {10, 15, 20, 30, 45, 60, 120};
+    // Süre seçenekleri güncellendi: 5, 10, 15, 30 ve 60 dakika (Saniye cinsinden)
+    public static final int[] STAY_OPTIONS = {300, 600, 900, 1800, 3600};
     public static final int[] LOCK_IDLE_OPTIONS = {0, 2, 5, 10, 15, 30, 60};
 
     public static final class Spec {
@@ -474,7 +475,6 @@ public final class Scenes {
             }
         }
         if (enabled.isEmpty()) enabled.add("night");
-        // Order according to scene_order
         List<String> ordered = new ArrayList<>();
         for (String id : getSceneOrder(c)) {
             if (enabled.contains(id)) ordered.add(id);
@@ -540,8 +540,6 @@ public final class Scenes {
         prefs(c).edit().putString("scene_enabled", sb.toString()).apply();
     }
 
-    // ─── Default Night Scenes Clock Alignment (Dynamic / Left / Center / Right) ───
-
     public static String getDefaultClockPos(Context c) {
         String pos = prefs(c).getString("default_clock_pos", CLOCK_POS_DYNAMIC);
         if (CLOCK_POS_LEFT.equals(pos) || CLOCK_POS_CENTER.equals(pos) || CLOCK_POS_RIGHT.equals(pos)) {
@@ -575,8 +573,6 @@ public final class Scenes {
         return I18n.t(c, "align_dynamic");
     }
 
-    // ─── Custom Night Scenes Clock Alignment (Left / Center / Right) ───
-
     public static String getCustomClockPos(Context c) {
         String pos = prefs(c).getString("custom_clock_pos", CLOCK_POS_CENTER);
         if (CLOCK_POS_LEFT.equals(pos) || CLOCK_POS_RIGHT.equals(pos)) return pos;
@@ -606,8 +602,6 @@ public final class Scenes {
         if (CLOCK_POS_RIGHT.equals(pos)) return I18n.t(c, "align_right");
         return I18n.t(c, "align_center");
     }
-
-    // ─── Classic Appearance Big Clock & Clock Alignment ───
 
     public static boolean isClassicBigClockEnabled(Context c) {
         return prefs(c).getBoolean("classic_big_clock", true);
@@ -647,7 +641,6 @@ public final class Scenes {
         return I18n.t(c, "align_center");
     }
 
-    /** Returns false if trying to disable the last remaining active scene. */
     public static boolean toggleScene(Context c, String id) {
         List<String> enabled = new ArrayList<>(getEnabledSceneIds(c));
         if (enabled.contains(id)) {
@@ -664,8 +657,6 @@ public final class Scenes {
         prefs(c).edit().putString("scene_enabled", sb.toString()).apply();
         return true;
     }
-
-    // ─── Lock Screen Settings (Wallpapers, Clock Position, Idle Timer) ──────
 
     public static List<String> getAllLockSceneCandidates() {
         List<String> all = new ArrayList<>();
@@ -799,15 +790,15 @@ public final class Scenes {
 
     public static int getStaySeconds(Context c) {
         SharedPreferences p = prefs(c);
-        if (!p.getBoolean("scene_seconds_default_60", false)) {
-            SharedPreferences.Editor ed = p.edit().putBoolean("scene_seconds_default_60", true);
-            if (!p.contains("scene_seconds") || p.getInt("scene_seconds", 20) == 20) {
-                ed.putInt("scene_seconds", 60);
+        if (!p.getBoolean("scene_seconds_default_300", false)) {
+            SharedPreferences.Editor ed = p.edit().putBoolean("scene_seconds_default_300", true);
+            if (!p.contains("scene_seconds") || p.getInt("scene_seconds", 60) == 60) {
+                ed.putInt("scene_seconds", 300); // Varsayılan 5 dakika
             }
             ed.apply();
         }
-        int s = p.getInt("scene_seconds", 60);
-        return s >= 5 ? s : 60;
+        int s = p.getInt("scene_seconds", 300);
+        return s >= 300 ? s : 300;
     }
 
     public static int cycleStaySeconds(Context c) {
@@ -823,7 +814,6 @@ public final class Scenes {
         return next;
     }
 
-    /** The small app-name bubble above the focused Night Scenes dock icon. On by default. */
     public static boolean isDockNamesShown(Context c) {
         return prefs(c).getBoolean("dock_names", true);
     }
@@ -897,11 +887,6 @@ public final class Scenes {
         }
     }
 
-    /**
-     * Multi-layer Scene View that renders the active scene (and crossfades to the next scene),
-     * including background, shade gradients, refractive glass clock, waterline reflection,
-     * foreground mountain/tree cutouts, and the date + weather line.
-     */
     public static final class SceneView extends View {
         public interface OnSceneChangedListener {
             void onSceneChanged(Bitmap currentBgBitmap);
@@ -975,9 +960,7 @@ public final class Scenes {
             Bitmap glassWetBaked;
             BitmapShader glassShader;
             BitmapShader glassWetShader;
-            /** Clock uses the same Liquid Glass look as the dock / cards (custom, classic, reddit, folder walls). */
             boolean dockGlass;
-            /** Average luminance behind the clock region (0..1). */
             float clockLum = 0.35f;
 
             LoadedScene(Spec spec) {
@@ -1392,7 +1375,6 @@ public final class Scenes {
                         new Rect(0, 0, w, h),
                         new Paint(Paint.FILTER_BITMAP_FLAG));
 
-                // Sample average luminance of the clock region (upper-middle 10%..55%)
                 float sumLum = 0f;
                 int count = 0;
                 for (int py = h / 10; py < (h * 55) / 100; py += 6) {
@@ -1407,7 +1389,6 @@ public final class Scenes {
                 }
                 float avgLum = count > 0 ? (sumLum / count) : 0.35f;
 
-                // Deep refractive blur so background colors blend smoothly into the clock digits
                 Bitmap smallBlur = Ui.blur(cropped, 160, 90, 8, 3);
                 Bitmap base = Bitmap.createScaledBitmap(smallBlur != null ? smallBlur : cropped, w, h, true);
                 if (smallBlur != null && smallBlur != base && smallBlur != cropped) smallBlur.recycle();
@@ -1426,11 +1407,7 @@ public final class Scenes {
                     });
                     cm.postConcat(sc);
                 } else {
-                    // Dock / card Liquid Glass body: the blurred wallpaper itself with gentle saturation,
-                    // then an adaptive tint exactly like MainActivity.LiquidGlass.tintFor(): darker glass
-                    // over bright artwork, light frost over dark artwork, so digits always stand out.
                     cm.setSaturation(1.6f);
-                    // Same colour lift as Ui.glassBackdrop() used by the dock and cards
                     cm.postConcat(new ColorMatrix(new float[]{
                         1.05f, 0, 0, 0, 14,
                         0, 1.05f, 0, 0, 14,
@@ -1444,8 +1421,6 @@ public final class Scenes {
                 if (base != out) base.recycle();
 
                 if (!darkClock) {
-                    // Exactly MainActivity.LiquidGlass.tintFor(): up to 36% black over bright art,
-                    // a light white frost (max ~14%) over dark art.
                     int tint;
                     if (avgLum >= 0.45f) {
                         int a = Math.round(0x1F + (Math.min(avgLum, 0.85f) - 0.45f) / 0.4f * (0x5C - 0x1F));
@@ -1458,7 +1433,6 @@ public final class Scenes {
                     ls.dockGlass = true;
                     ls.clockLum = avgLum;
                 } else {
-                    // Luminous specular glass sheen while keeping background colors vivid
                     Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
                     int[] colors = {
                         Color.argb(46, 255, 255, 255),
@@ -1486,7 +1460,6 @@ public final class Scenes {
 
             ColorMatrix cm = new ColorMatrix();
             if (darkClock) {
-                // Fog scene: brightness(0.46) saturate(0.9)
                 cm.setSaturation(0.9f);
                 ColorMatrix scale = new ColorMatrix(new float[]{
                     0.46f, 0, 0, 0, 0,
@@ -1496,7 +1469,6 @@ public final class Scenes {
                 });
                 cm.postConcat(scale);
             } else {
-                // Standard glass clock: brightness(1.08) saturate(1.25)
                 cm.setSaturation(1.25f);
                 ColorMatrix scale = new ColorMatrix(new float[]{
                     1.08f, 0, 0, 0, 10,
@@ -1511,7 +1483,6 @@ public final class Scenes {
             cv.drawBitmap(base, 0, 0, p);
             if (base != src) base.recycle();
 
-            // Specular diagonal glass sheen (160deg)
             Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
             int[] colors = darkClock ? new int[]{
                 Color.argb(65, 255, 255, 255),
@@ -1591,10 +1562,8 @@ public final class Scenes {
 
             Spec sp = ls.spec;
             if (!classicClockOnlyMode) {
-                // 1. Background image (center-crop)
                 drawCenterCrop(canvas, ls.bg, w, h);
 
-                // 2. Scene shade gradient
                 if ("water".equals(sp.id)) {
                     shadePaint.setShader(new LinearGradient(0, 0, 0, h,
                             new int[]{Color.argb(56, 14, 22, 40), Color.argb(15, 14, 22, 40), Color.argb(128, 0, 0, 0)},
@@ -1611,7 +1580,6 @@ public final class Scenes {
                 canvas.drawRect(0, 0, w, h, shadePaint);
             }
 
-            // 3. Giant Glass Clock (iPhone Duo / Rounded / Tall Glass)
             float u = Math.min(w / 960f, h / 540f);
             Context ctx = getContext();
             String style = getClockStyle(ctx);
@@ -1742,8 +1710,6 @@ public final class Scenes {
             clockShadowPaint.setColor(Color.argb(42, 0, 0, 0));
 
             if (ls.dockGlass && (classicClockOnlyMode || ls.fg == null)) {
-                // Dock / card Liquid Glass: soft top glow + diagonal specular rim that catches light on
-                // the top-left edge and fades down the sides (same as MainActivity.LiquidGlass).
                 clockFrostPaint.setShader(new LinearGradient(
                         0, topGradY, 0, topGradY + visualCapH * 0.55f,
                         Color.argb(0x1F, 255, 255, 255), Color.argb(0, 255, 255, 255),
@@ -1788,12 +1754,10 @@ public final class Scenes {
                         isDuo, isRounded, false, ls, darkClk);
             }
 
-            // 4. Foreground cutout (mountain ridge / volcano / fog hills / rainforest canopy)
             if (!classicClockOnlyMode && ls.fg != null) {
                 drawCenterCrop(canvas, ls.fg, w, h);
             }
 
-            // 5. Line 1 (Greeting with person name) + Line 2 (Date & Weather) above the clock
             boolean darkDt = !classicClockOnlyMode && sp.darkDate;
             String greeting = buildGreeting(ctx);
             greetPaint.setTextSize(greetPx);
@@ -1960,10 +1924,6 @@ public final class Scenes {
             return (paint.measureText(hrs) + paint.measureText(mins)) * sx + colonSpace;
         }
 
-        /**
-         * Renders the clock in iPhone Duo (frosted translucent glass slab + crisp specular rim matching duo.png),
-         * iPhone Rounded, or Tall Glass style, with solid circular frosted-glass colon dots.
-         */
         private void drawStylizedClock(Canvas canvas, String timeStr, float startX, float baselineY,
                                        float scaleY, float rawCapH, float clockPx, float u,
                                        boolean isDuo, boolean isRounded, boolean wet,
@@ -1979,9 +1939,6 @@ public final class Scenes {
             }
 
             if (isDuo && colonIdx >= 0) {
-                // iPhone Duo Lock Screen Clock (matching duo.png 12:08):
-                // Bahnschrift Condensed ('wght' 345, 'wdth' 75) unified via Path.Op.UNION, scaled to tall narrow
-                // iOS Duo proportions, with rounded corners and true-circle colon dots.
                 String hrs = timeStr.substring(0, colonIdx);
                 String mins = timeStr.substring(colonIdx + 1);
                 float hrsW = fillP.measureText(hrs) * DUO_SCALE_X;
@@ -2008,12 +1965,9 @@ public final class Scenes {
                     canvas.restore();
                 }
 
-                // 1. Refractive blurred background glass fill inside the numerals & colon dots
                 fillP.setAlpha(wet ? 155 : (isUncoveredBg ? 242 : 215));
                 canvas.drawPath(duoClockPath, fillP);
 
-                // 2. Balanced frosted translucent gradient fill: bright enough to read clearly over any
-                //    custom or classic wallpaper while letting the blurred background colors shine through.
                 clockFrostPaint.setAlpha(wet ? 120 : (isUncoveredBg ? 152 : 235));
                 canvas.drawPath(duoClockPath, clockFrostPaint);
                 if (isUncoveredBg && !wet) {
@@ -2030,7 +1984,6 @@ public final class Scenes {
             }
 
             if (colonIdx < 0) {
-                // Tall Glass mode
                 if (!wet) {
                     clockShadowPaint.setAlpha(isUncoveredBg ? 68 : 42);
                     canvas.drawText(timeStr, startX, baselineY + 4f * u, clockShadowPaint);
@@ -2058,7 +2011,6 @@ public final class Scenes {
             float dotY1 = baselineY - rawCapH * 0.68f;
             float dotY2 = baselineY - rawCapH * 0.42f;
 
-            // iPhone Rounded Lock Screen Clock
             if (!wet) {
                 clockShadowPaint.setAlpha(isUncoveredBg ? 70 : 46);
                 canvas.drawText(hrs, startX, baselineY + 3.5f * u, clockShadowPaint);
@@ -2088,11 +2040,6 @@ public final class Scenes {
             canvas.restore();
         }
 
-        /**
-         * Clock digits rendered as the same Liquid Glass material used by the dock and the
-         * Continue Watching / widget cards: blurred wallpaper body with an adaptive tint, a soft
-         * top glow, a diagonal specular rim and a gentle drop shadow for separation.
-         */
         private void drawDockGlassClock(Canvas canvas, String timeStr, float startX, float baselineY,
                                         float scaleY, float rawCapH, float clockPx, float u,
                                         boolean isDuo, int colonIdx, TextPaint fillP) {
@@ -2140,7 +2087,6 @@ public final class Scenes {
                 }
             }
 
-            // 1. Soft drop shadow for separation from the wallpaper
             int shA = clockShadowPaint.getColor() >>> 24;
             clockShadowPaint.setAlpha(Math.max(24, shA));
             canvas.save();
@@ -2148,15 +2094,12 @@ public final class Scenes {
             canvas.drawPath(path, clockShadowPaint);
             canvas.restore();
 
-            // 2. Glass body: blurred wallpaper + adaptive tint (baked into the shader)
             fillP.setAlpha(255);
             canvas.drawPath(path, fillP);
 
-            // 3. Top glow
             clockFrostPaint.setAlpha(255);
             canvas.drawPath(path, clockFrostPaint);
 
-            // 4. Specular rim
             clockStrokePaint.setAlpha(255);
             canvas.drawPath(path, clockStrokePaint);
         }
